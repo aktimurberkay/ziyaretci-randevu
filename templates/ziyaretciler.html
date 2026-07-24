@@ -1,0 +1,156 @@
+{% extends 'base.html' %}
+
+{% block page_title %}Ziyaretçiler{% endblock %}
+
+{% block content %}
+<div class="glass-card" style="max-width: 100%; margin: 0;">
+    <h3>Ziyaretçi Kayıtları</h3>
+
+
+
+    <form method="GET" action="{{ url_for('ziyaretciler') }}" style="display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 2rem; background: #f9fbfc; padding: 1.5rem; border-radius: 8px; border: 1px solid var(--border-color);">
+        <div class="form-group" style="flex: 2; min-width: 220px; margin-bottom: 0;">
+            <input type="text" name="q" class="form-control" placeholder="İsim, T.C. Kimlik veya Şirket ara..." value="{{ arama }}">
+        </div>
+        <div class="form-group" style="flex: 1; min-width: 180px; margin-bottom: 0;">
+            <select name="filtre" class="form-control">
+                <option value="tumu" {% if filtre == 'tumu' %}selected{% endif %}>Tüm Ziyaretçiler</option>
+                <option value="icerde" {% if filtre == 'icerde' %}selected{% endif %}>Şu An İçeride Olanlar</option>
+            </select>
+        </div>
+        <button type="submit" class="btn btn-primary" style="width: auto; padding: 0.8rem 1.5rem;"><i class="fa-solid fa-magnifying-glass"></i> Filtrele</button>
+        {% if arama or filtre != 'tumu' %}
+        <a href="{{ url_for('ziyaretciler') }}" class="btn btn-accent" style="width: auto; padding: 0.8rem 1.5rem;">Temizle</a>
+        {% endif %}
+    </form>
+
+    <div style="overflow-x: auto;">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Ad Soyad</th>
+                    <th>T.C. Kimlik</th>
+                    <th>Şirket</th>
+                    <th>Toplam Ziyaret</th>
+                    <th>Son Ziyaret Tarihi</th>
+                    <th>Şu An Durumu</th>
+                    <th style="text-align: center;">Eylemler</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% if not kayitlar %}
+                <tr>
+                    <td colspan="7" style="text-align: center; color: var(--text-muted); padding: 2rem;">Kriterlere uygun ziyaretçi bulunamadı.</td>
+                </tr>
+                {% else %}
+                    {% for kayit in kayitlar %}
+                    <tr>
+                        <td>{{ kayit.ziyaretci.ad_soyad }}</td>
+                        <td>{{ kayit.ziyaretci.tc_kimlik or '-' }}</td>
+                        <td>{{ kayit.ziyaretci.sirket or '-' }}</td>
+                        <td>{{ kayit.ziyaret_sayisi }}</td>
+                        <td>
+                            {% if kayit.son_randevu %}
+                                {{ kayit.son_randevu.tarih_saat.strftime('%d.%m.%Y %H:%M') }}
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if kayit.icerde_mi %}
+                            <span class="status-badge status-onaylandi"><i class="fa-solid fa-door-open"></i> İçeride</span>
+                            {% else %}
+                            <span class="status-badge status-bekliyor" style="background-color: #eef1f4; color: var(--text-muted);">Tesis Dışında</span>
+                            {% endif %}
+                        </td>
+                        <td style="text-align: center;">
+                            {% if kayit.ziyaretci.eposta %}
+                            <button class="btn btn-accent" style="padding: 0.4rem 0.8rem; font-size: 0.85rem;" onclick="openMailModal('{{ kayit.ziyaretci.id }}', '{{ kayit.ziyaretci.ad_soyad }}', '{{ kayit.ziyaretci.eposta }}')">
+                                <i class="fa-solid fa-envelope"></i> Mail
+                            </button>
+                            {% else %}
+                            <span style="font-size: 0.8rem; color: var(--text-muted);">E-posta yok</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Mail Modal -->
+<div id="mailModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 2000; justify-content: center; align-items: center; padding: 1rem;">
+    <div style="background: var(--bg-color); padding: 2rem; border-radius: 12px; width: 500px; max-width: 100%; position: relative; box-shadow: 0 10px 25px rgba(0,0,0,0.2);">
+        <button onclick="closeMailModal()" style="position: absolute; top: 1rem; right: 1rem; background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-color);"><i class="fa-solid fa-xmark"></i></button>
+        <h3 style="margin-top: 0; color: var(--primary-color); border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem; margin-bottom: 1rem;"><i class="fa-solid fa-paper-plane"></i> Mail Gönder</h3>
+        <form id="mailForm" onsubmit="sendMail(event)">
+            <input type="hidden" id="mailZiyaretciId" name="ziyaretci_id">
+            <div class="form-group">
+                <label>Alıcı</label>
+                <input type="text" id="mailAlici" class="form-control" disabled style="background-color: #f1f5f9;">
+            </div>
+            <div class="form-group">
+                <label>Konu</label>
+                <input type="text" id="mailKonu" name="konu" class="form-control" required placeholder="Mail konusu...">
+            </div>
+            <div class="form-group">
+                <label>Mesajınız</label>
+                <textarea id="mailMesaj" name="mesaj" class="form-control" rows="5" required placeholder="Mesaj içeriğini buraya yazın..."></textarea>
+            </div>
+            <button type="submit" class="btn btn-primary" style="width: 100%;"><i class="fa-solid fa-paper-plane"></i> Gönder</button>
+        </form>
+    </div>
+</div>
+
+<script>
+function openMailModal(id, adSoyad, eposta) {
+    document.getElementById('mailZiyaretciId').value = id;
+    document.getElementById('mailAlici').value = `${adSoyad} (${eposta})`;
+    document.getElementById('mailKonu').value = '';
+    document.getElementById('mailMesaj').value = '';
+    document.getElementById('mailModal').style.display = 'flex';
+}
+
+function closeMailModal() {
+    document.getElementById('mailModal').style.display = 'none';
+}
+
+function sendMail(event) {
+    event.preventDefault();
+    const btn = event.target.querySelector('button[type="submit"]');
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Gönderiliyor...';
+    btn.disabled = true;
+
+    const z_id = document.getElementById('mailZiyaretciId').value;
+    const data = {
+        konu: document.getElementById('mailKonu').value,
+        icerik: document.getElementById('mailMesaj').value
+    };
+
+    fetch(`/api/ziyaretci/${z_id}/mail_gonder`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(data)
+    })
+    .then(r => r.json())
+    .then(res => {
+        btn.innerHTML = '<i class="fa-solid fa-paper-plane"></i> Gönder';
+        btn.disabled = false;
+        
+        if (res.basari) {
+            closeMailModal();
+            alert('Mail başarıyla gönderildi.');
+        } else {
+            alert('Hata: ' + (res.hata || 'Bilinmeyen hata'));
+        }
+    })
+    .catch(err => {
+        btn.innerHTML = '<i class="fa-solid fa-paper-plane"></i> Gönder';
+        btn.disabled = false;
+        alert('Bağlantı hatası.');
+    });
+}
+</script>
+{% endblock %}

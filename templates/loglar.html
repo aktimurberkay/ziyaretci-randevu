@@ -1,0 +1,107 @@
+{% extends 'base.html' %}
+
+{% block page_title %}Raporlar{% endblock %}
+
+{% block content %}
+<div class="glass-card" style="max-width: 100%; margin: 0;">
+    <h3>Randevu Geçmişi ve Raporlar</h3>
+
+
+
+
+    <form method="GET" action="{{ url_for('loglar') }}" style="display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 2rem; background: #f9fbfc; padding: 1.5rem; border-radius: 8px; border: 1px solid var(--border-color);">
+        <div class="form-group" style="flex: 1; min-width: 180px; margin-bottom: 0;">
+            <label style="font-size: 0.8rem; color: var(--text-muted);">Başlangıç Tarihi</label>
+            <input type="date" name="baslangic" class="form-control" value="{{ baslangic }}">
+        </div>
+        <div class="form-group" style="flex: 1; min-width: 180px; margin-bottom: 0;">
+            <label style="font-size: 0.8rem; color: var(--text-muted);">Bitiş Tarihi</label>
+            <input type="date" name="bitis" class="form-control" value="{{ bitis }}">
+        </div>
+        <div style="display: flex; align-items: flex-end; gap: 0.5rem;">
+            <button type="submit" class="btn btn-primary" style="width: auto; padding: 0.8rem 1.5rem;"><i class="fa-solid fa-filter"></i> Filtrele</button>
+            {% if baslangic or bitis %}
+            <a href="{{ url_for('loglar') }}" class="btn btn-accent" style="width: auto; padding: 0.8rem 1.5rem;">Temizle</a>
+            {% endif %}
+        </div>
+    </form>
+
+    <div>
+        <div style="display: flex; justify-content: flex-end; align-items: center; margin-bottom: 1.5rem;">
+            <div style="display: flex; gap: 0.5rem;">
+                <a href="{{ url_for('rapor_excel') }}" class="btn btn-accent"><i class="fa-solid fa-file-excel"></i> Excel Çıktısı Al</a>
+                <a href="{{ url_for('rapor_pdf') }}" class="btn btn-accent"><i class="fa-solid fa-file-pdf"></i> PDF Çıktısı Al</a>
+            </div>
+        </div>
+        <!-- Özet Kartları -->
+        <div style="display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 2rem;">
+        <div style="flex: 1; min-width: 140px; background: var(--primary-color); color: white; padding: 1rem; border-radius: 8px;">
+            <div style="font-size: 1.8rem; font-weight: bold;">{{ toplam }}</div>
+            <div style="font-size: 0.85rem; opacity: 0.9;">Toplam Kayıt</div>
+        </div>
+        <div style="flex: 1; min-width: 140px; background: var(--success); color: white; padding: 1rem; border-radius: 8px;">
+            <div style="font-size: 1.8rem; font-weight: bold;">{{ tamamlanan }}</div>
+            <div style="font-size: 0.85rem; opacity: 0.9;">Tamamlanan Ziyaret</div>
+        </div>
+        <div style="flex: 1; min-width: 140px; background: #f9c74f; color: #4a3400; padding: 1rem; border-radius: 8px;">
+            <div style="font-size: 1.8rem; font-weight: bold;">{{ bekleyen }}</div>
+            <div style="font-size: 0.85rem; opacity: 0.9;">Bekleyen Talep</div>
+        </div>
+        <div style="flex: 1; min-width: 140px; background: var(--accent-color, #c0392b); color: white; padding: 1rem; border-radius: 8px;">
+            <div style="font-size: 1.8rem; font-weight: bold;">{{ reddedilen }}</div>
+            <div style="font-size: 0.85rem; opacity: 0.9;">Reddedilen</div>
+        </div>
+    </div>
+
+    <div style="overflow-x: auto;">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Ziyaretçi</th>
+                    <th>Görüşülecek Kişi</th>
+                    <th>Randevu Tarihi</th>
+                    <th>Giriş Saati</th>
+                    <th>Çıkış Saati</th>
+                    <th>Süre</th>
+                    <th>Durum</th>
+                    <th>Oluşturan</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% if not kayitlar %}
+                <tr>
+                    <td colspan="7" style="text-align: center; color: var(--text-muted); padding: 2rem;">Kriterlere uygun kayıt bulunamadı.</td>
+                </tr>
+                {% else %}
+                    {% for randevu in kayitlar %}
+                    <tr>
+                        <td>{{ randevu.ziyaretci_bilgisi.ad_soyad }}</td>
+                        <td>{{ randevu.personel.ad_soyad }}</td>
+                        <td>{{ randevu.tarih_saat.strftime('%d.%m.%Y %H:%M') }}</td>
+                        <td>{{ randevu.giris_saati.strftime('%d.%m.%Y %H:%M') if randevu.giris_saati else '-' }}</td>
+                        <td>{{ randevu.cikis_saati.strftime('%d.%m.%Y %H:%M') if randevu.cikis_saati else '-' }}</td>
+                        <td><span style="font-weight: 500; color: var(--primary-color);">{{ randevu.iceride_kalis_suresi }}</span></td>
+                        <td>
+                            <span class="status-badge
+                                {% if randevu.durum == 'Bekliyor' %}status-bekliyor
+                                {% elif randevu.durum == 'Onaylandı' or randevu.durum == 'Tamamlandı' %}status-onaylandi
+                                {% elif randevu.durum == 'Reddedildi' %}status-reddedildi
+                                {% else %}status-onaylandi{% endif %}">
+                                {{ randevu.durum }}
+                            </span>
+                        </td>
+                        <td>{{ randevu.olusturan.ad_soyad if randevu.olusturan else 'Ziyaretçi (Web Formu)' }}</td>
+                    </tr>
+                    {% endfor %}
+                {% endif %}
+            </tbody>
+        </table>
+        </div>
+    </div> <!-- /tab-randevu -->
+
+
+
+</div>
+
+
+{% endblock %}

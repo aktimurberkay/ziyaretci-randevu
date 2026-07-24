@@ -1,0 +1,109 @@
+{% extends 'base.html' %}
+
+{% block page_title %}Yeni Randevu Oluştur{% endblock %}
+
+{% block content %}
+<div class="glass-card" style="max-width: 700px; margin: 0;">
+    <h3>Yeni Randevu Talebi</h3>
+
+    {% if current_user.rol == 'personel' %}
+    <p style="color: var(--text-muted); margin-bottom: 2rem;">
+        Kendi misafiriniz için randevu oluşturuyorsunuz. Bu randevu otomatik olarak
+        <strong>onaylanmış</strong> sayılacak, resepsiyon ziyaretçiyi doğrudan içeri alabilecektir.
+    </p>
+    {% else %}
+    <p style="color: var(--text-muted); margin-bottom: 2rem;">
+        Başka bir personel adına randevu oluşturuyorsunuz. Randevu, ilgili personelin
+        <strong>onayına</strong> sunulacaktır.
+    </p>
+    {% endif %}
+
+    <form method="POST" action="{{ url_for('yeni_randevu') }}">
+        <div class="form-group">
+            <label>Ziyaretçinin Adı Soyadı</label>
+            <input type="text" name="ad_soyad" class="form-control" required>
+        </div>
+
+        <div class="form-group">
+            <label>T.C. Kimlik / Pasaport No (Opsiyonel)</label>
+            <input type="text" name="tc_kimlik" class="form-control">
+        </div>
+
+        <div class="form-group">
+            <label>Ziyaretçi E-posta (Opsiyonel)</label>
+            <input type="email" name="eposta" class="form-control">
+        </div>
+
+        <div class="form-group">
+            <label>Ziyaretçinin Şirketi (Opsiyonel)</label>
+            <input type="text" name="sirket" class="form-control">
+        </div>
+
+        {% if current_user.rol != 'personel' %}
+        <div class="form-group">
+            <label>Görüşülecek Personel</label>
+            <select name="personel_id" id="personel_select" class="form-control" required>
+                <option value="">Personel Seçin...</option>
+                {% for personel in personeller %}
+                <option value="{{ personel.id }}">{{ personel.ad_soyad }} ({{ personel.departman or '-' }})</option>
+                {% endfor %}
+            </select>
+        </div>
+        {% else %}
+        <div class="form-group">
+            <label>Görüşülecek Personel</label>
+            <input type="hidden" id="personel_select" value="{{ current_user.id }}">
+            <input type="text" class="form-control" value="{{ current_user.ad_soyad }} (Siz)" disabled>
+        </div>
+        {% endif %}
+
+        <div class="form-group">
+            <label>Randevu Tarihi ve Saati</label>
+            <input type="datetime-local" name="tarih_saat" id="tarih_saat_input" class="form-control" required>
+            <div id="musaitlik_durumu" style="margin-top: 0.5rem; font-size: 0.9rem; font-weight: bold;"></div>
+        </div>
+
+        <div class="form-group">
+            <label>Ziyaret Amacı / Notunuz</label>
+            <textarea name="notlar" class="form-control" rows="3"></textarea>
+        </div>
+
+        <button type="submit" class="btn btn-accent">Randevuyu Oluştur</button>
+        <a href="{{ url_for('dashboard') }}" class="btn btn-primary" style="margin-left: 0.5rem;">Vazgeç</a>
+    </form>
+</div>
+
+<script>
+    const personelSelect = document.getElementById('personel_select');
+    const tarihSaatInput = document.getElementById('tarih_saat_input');
+    const musaitlikDiv = document.getElementById('musaitlik_durumu');
+
+    function checkMusaitlik() {
+        const personelId = personelSelect ? personelSelect.value : null;
+        const tarihSaat = tarihSaatInput ? tarihSaatInput.value : null;
+        
+        if (personelId && tarihSaat) {
+            musaitlikDiv.innerHTML = '<span style="color:var(--text-muted);">Kontrol ediliyor...</span>';
+            fetch(`/api/musaitlik-kontrol?personel_id=${personelId}&tarih_saat=${tarihSaat}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.musait_mi) {
+                        musaitlikDiv.innerHTML = `<span style="color:var(--success);">🟢 ${data.mesaj}</span>`;
+                    } else {
+                        musaitlikDiv.innerHTML = `<span style="color:var(--danger);">🔴 ${data.mesaj}</span>`;
+                    }
+                })
+                .catch(err => {
+                    musaitlikDiv.innerHTML = '';
+                });
+        } else {
+            if (musaitlikDiv) musaitlikDiv.innerHTML = '';
+        }
+    }
+
+    if (personelSelect && tarihSaatInput) {
+        personelSelect.addEventListener('change', checkMusaitlik);
+        tarihSaatInput.addEventListener('change', checkMusaitlik);
+    }
+</script>
+{% endblock %}

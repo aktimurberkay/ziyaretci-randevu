@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Giriş - Vega A.Ş Ziyaretçi Sistemi</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body class="animate-fade-in" style="background: var(--auth-bg); min-height: 100vh; display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden; transition: background 0.4s ease;">
+    <!-- Depth Background -->
+    <div style="position: absolute; top:0; left:0; width:100%; height:100%; z-index: -1;">
+        <div style="position: absolute; top: 20%; right: -10%; width: 40%; height: 40%; background: radial-gradient(circle, var(--accent-color) 0%, transparent 60%); opacity: 0.1; filter: blur(60px); animation: fadeIn 2s ease-out;"></div>
+    </div>
+    
+    <!-- Theme Toggle Button -->
+    <div style="position: absolute; top: 1.5rem; right: 2rem; z-index: 10;">
+        <button id="theme-toggle" class="theme-toggle-btn" title="Temayı Değiştir" style="background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.1); color: #fff; width: 42px; height: 42px; display: flex; justify-content: center; align-items: center;">
+            <i class="fa-solid fa-moon"></i>
+        </button>
+    </div>
+
+    <div class="auth-container animate-slide-up" style="margin: 0; width: 100%; max-width: 400px; z-index: 1;">
+
+        <h2 class="auth-title">Sistem Girişi</h2>
+        
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            {% for category, message in messages %}
+              <div class="alert alert-{{ category }}">{{ message }}</div>
+            {% endfor %}
+          {% endif %}
+        {% endwith %}
+
+        <form method="POST" action="{{ url_for('login') }}">
+            <div class="form-group">
+                <label for="kullanici_adi">Kullanıcı Adı</label>
+                <input type="text" id="kullanici_adi" name="kullanici_adi" class="form-control" placeholder="Örn: ahmet.yilmaz" required>
+            </div>
+            <div class="form-group">
+                <label for="sifre">Şifre</label>
+                <input type="password" id="sifre" name="sifre" class="form-control" placeholder="••••••••" required>
+            </div>
+            <button type="submit" class="btn btn-accent">Giriş Yap</button>
+        </form>
+        <div style="text-align: center; margin-top: 2rem;">
+        <div style="text-align: center; margin-top: 2rem;">
+            <a href="{{ url_for('landing') }}" style="color: var(--text-muted); text-decoration: none; font-weight: 500; transition: var(--transition);">← Ziyaretçi Talebi Formu</a>
+        </div>
+    </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/js/all.min.js"></script>
+    <script>
+        // Tema Yönetimi
+        const themeToggleBtn = document.getElementById('theme-toggle');
+        const themeIcon = themeToggleBtn ? themeToggleBtn.querySelector('i') : null;
+        
+        function setTheme(themeName) {
+            document.documentElement.setAttribute('data-theme', themeName);
+            localStorage.setItem('theme', themeName);
+            if(themeIcon) {
+                if(themeName === 'dark') {
+                    themeIcon.className = 'fa-solid fa-sun';
+                } else {
+                    themeIcon.className = 'fa-solid fa-moon';
+                }
+            }
+        }
+        
+        // İlk yüklemede kontrol et
+        const currentTheme = localStorage.getItem('theme');
+        if (currentTheme) {
+            setTheme(currentTheme);
+        } else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            setTheme('dark');
+        }
+        
+        // Toggle butonu listener
+        if(themeToggleBtn) {
+            themeToggleBtn.addEventListener('click', () => {
+                const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+                setTheme(isDark ? 'light' : 'dark');
+            });
+        }
+    </script>
+
+    <!-- Global SQL & XSS Validator Script -->
+    <script>
+    document.addEventListener('submit', function(e) {
+        if (e.target && e.target.tagName === 'FORM') {
+            const sqlKeywords = /\b(SELECT|INSERT|DELETE|UPDATE|DROP|ALTER|UNION|WHERE|FROM|TABLE|JOIN|CREATE|EXEC|TRUNCATE|MERGE|GRANT|REVOKE|SHOW|DESCRIBE|SCRIPT|ALERT|CONSOLE|LOG)\b/i;
+            let hasError = false;
+            
+            e.target.querySelectorAll('input:not([type="hidden"]):not([type="submit"]), textarea').forEach(input => {
+                if (sqlKeywords.test(input.value) || /[<>]/.test(input.value)) {
+                    hasError = true;
+                }
+            });
+            
+            if (hasError) {
+                e.preventDefault();
+                e.stopImmediatePropagation();
+                alert("Bu alana özel karakterler girilemez");
+                return false;
+            }
+        }
+    }, true); // Capture phase'de yakala ki form gönderilmeden önce kesin müdahale edebilelim
+    </script>
+</body>
+</html>

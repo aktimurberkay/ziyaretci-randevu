@@ -1,0 +1,461 @@
+{% extends 'base.html' %}
+
+{% block page_title %}Takvimim{% endblock %}
+
+{% block content %}
+<style>
+    /* FullCalendar compact toolbar */
+    .fc .fc-toolbar {
+        flex-wrap: nowrap !important;
+        gap: 0.5rem !important;
+        margin-bottom: 0.8rem !important;
+    }
+    .fc .fc-toolbar-title {
+        font-size: 1.1rem !important;
+        font-weight: 600 !important;
+    }
+    .fc .fc-button {
+        padding: 0.35rem 0.7rem !important;
+        font-size: 0.85rem !important;
+        font-weight: 500 !important;
+        border-radius: 6px !important;
+        box-shadow: none !important;
+        text-transform: capitalize !important;
+    }
+    .fc .fc-button-group > .fc-button {
+        border-radius: 0 !important;
+    }
+    .fc .fc-button-group > .fc-button:first-child {
+        border-radius: 6px 0 0 6px !important;
+    }
+    .fc .fc-button-group > .fc-button:last-child {
+        border-radius: 0 6px 6px 0 !important;
+    }
+    .fc .fc-today-button {
+        margin-left: 0.5rem !important;
+        margin-right: 0 !important;
+    }
+    .fc .fc-toolbar-chunk {
+        display: flex;
+        align-items: center;
+        gap: 0.3rem;
+    }
+    /* View selector pills */
+    .view-selector {
+        display: inline-flex;
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        overflow: hidden;
+    }
+    .view-selector button {
+        padding: 0.45rem 0.9rem;
+        border: none;
+        background: transparent;
+        color: var(--text-muted);
+        font-size: 0.85rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s;
+        border-right: 1px solid var(--border-color);
+    }
+    .view-selector button:last-child {
+        border-right: none;
+    }
+    .view-selector button.active {
+        background: var(--primary-color);
+        color: white;
+    }
+    .view-selector button:hover:not(.active) {
+        background: rgba(0,0,0,0.05);
+    }
+    /* Calendar card */
+    .calendar-card {
+        background: var(--card-bg);
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        padding: 1.2rem;
+        overflow: hidden;
+    }
+    .calendar-card-header {
+        display: flex;
+        align-items: center;
+        gap: 0.8rem;
+        margin-bottom: 1rem;
+        padding-bottom: 0.8rem;
+        border-bottom: 1px solid var(--border-color);
+    }
+    .calendar-card-header img {
+        width: 104px;
+        height: 104px;
+        border-radius: 50%;
+        object-fit: cover;
+        border: 3px solid var(--primary-color);
+        flex-shrink: 0;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.18);
+    }
+    .calendar-card-header h4 {
+        margin: 0;
+        font-size: 1rem;
+        font-weight: 600;
+        color: var(--text-color);
+    }
+</style>
+
+<div class="glass-card" style="max-width: 100%; margin: 0;">
+    <!-- Top toolbar -->
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 0.8rem;">
+        <h3 style="margin: 0;"><i class="fa-regular fa-calendar"></i> Kişisel Takvimim</h3>
+        <div style="display: flex; gap: 0.8rem; align-items: center; flex-wrap: wrap;">
+            <!-- View selector -->
+            <div class="view-selector">
+                <button onclick="changeAllViews('timeGridDay')" id="btn-day">Gün</button>
+                <button onclick="changeAllViews('timeGridWeek')" id="btn-week" class="active">Hafta</button>
+                <button onclick="changeAllViews('dayGridMonth')" id="btn-month">Ay</button>
+            </div>
+            
+            {% if personeller|length > 1 %}
+            <button onclick="showMyCalendarOnly()" class="btn" style="padding: 0.45rem 1rem; font-size: 0.9rem; background: var(--card-bg); border: 1px solid var(--border-color); color: var(--text-color);"><i class="fa-solid fa-user" style="margin-right: 0.3rem;"></i> Kendi Takvimim</button>
+            
+            <div class="custom-dropdown" style="position: relative;">
+                <button type="button" class="btn" style="padding: 0.45rem 1rem; font-size: 0.9rem; background: var(--card-bg); border: 1px solid var(--border-color); color: var(--text-color);" onclick="document.getElementById('personelListesi').style.display = document.getElementById('personelListesi').style.display === 'block' ? 'none' : 'block'">
+                    Personel Filtrele <i class="fa-solid fa-chevron-down" style="margin-left: 0.4rem; font-size: 0.7rem;"></i>
+                </button>
+                <div id="personelListesi" style="display: none; position: absolute; top: 100%; right: 0; background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 10px; padding: 1rem; z-index: 1000; min-width: 250px; box-shadow: 0 8px 24px rgba(0,0,0,0.15); margin-top: 0.5rem; max-height: 300px; overflow-y: auto;">
+                    <label style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border-color); cursor: pointer;">
+                        <input type="checkbox" id="selectAllPersonel" onchange="toggleAllPersonel(this)" checked>
+                        <strong>Tümünü Seç</strong>
+                    </label>
+                    <div id="personelCheckboxes">
+                        {% for p in personeller %}
+                        <label style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.4rem; cursor: pointer; padding: 0.2rem 0;">
+                            <input type="checkbox" class="personel-cb" value="{{ p.id }}" data-name="{{ p.ad_soyad }} ({{ p.rol }})" data-avatar="{{ url_for('static', filename='uploads/' + (p.profil_resmi or 'default.png')) }}" onchange="renderCalendars(); checkAllState();" checked>
+                            {{ p.ad_soyad }} ({{ p.rol }})
+                        </label>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+            
+            <button onclick="document.getElementById('etkinlikForm').reset(); document.getElementById('etkinlik_id').value=''; document.getElementById('btnEtkinlikSil').style.display='none'; document.getElementById('etkinlikModal').style.display='flex';" class="btn btn-primary" style="padding: 0.45rem 1rem; font-size: 0.9rem;"><i class="fa-solid fa-plus"></i> Yeni Etkinlik</button>
+        </div>
+    </div>
+    
+    <div id="calendarContainer" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: 1.2rem; min-height: 600px;"></div>
+</div>
+
+<!-- Etkinlik Ekleme Modalı -->
+<div id="etkinlikModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 2000; justify-content: center; align-items: center; padding: 1rem;">
+    <div style="background: var(--bg-color); padding: 2rem; border-radius: 12px; width: 500px; max-width: 100%; position: relative; box-shadow: 0 10px 25px rgba(0,0,0,0.2);">
+        <button onclick="document.getElementById('etkinlikModal').style.display='none'" style="position: absolute; top: 1rem; right: 1rem; background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-color);"><i class="fa-solid fa-xmark"></i></button>
+        <h3 style="margin-top: 0; color: var(--primary-color); border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem; margin-bottom: 1rem;">Takvim Etkinliği</h3>
+        
+        <form id="etkinlikForm">
+            <input type="hidden" id="etkinlik_id">
+            <div class="form-group">
+                <label>Başlık</label>
+                <input type="text" id="etkinlik_baslik" class="form-control" required>
+            </div>
+            <div style="display: flex; gap: 1rem;">
+                <div class="form-group" style="flex: 1;">
+                    <label>Başlangıç Tarihi</label>
+                    <input type="date" id="etkinlik_baslangic_tarih" class="form-control" required>
+                </div>
+                <div class="form-group" style="flex: 1;">
+                    <label>Başlangıç Saati</label>
+                    <input type="time" id="etkinlik_baslangic_saat" class="form-control" required>
+                </div>
+            </div>
+            <div style="display: flex; gap: 1rem;">
+                <div class="form-group" style="flex: 1;">
+                    <label>Bitiş Tarihi</label>
+                    <input type="date" id="etkinlik_bitis_tarih" class="form-control" required>
+                </div>
+                <div class="form-group" style="flex: 1;">
+                    <label>Bitiş Saati</label>
+                    <input type="time" id="etkinlik_bitis_saat" class="form-control" required>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Tip</label>
+                <select id="etkinlik_tip" class="form-control">
+                    <option value="toplanti">Toplantı</option>
+                    <option value="izin">İzin / Tatil</option>
+                    <option value="disarida">Ofis Dışında</option>
+                    <option value="musait_degil">Müsait Değil</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Açıklama</label>
+                <textarea id="etkinlik_aciklama" class="form-control" rows="2"></textarea>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin-top: 1.5rem;">
+                <button type="button" id="btnEtkinlikSil" onclick="silEtkinlik()" class="btn btn-accent" style="display: none;"><i class="fa-solid fa-trash"></i> Sil</button>
+                <div style="margin-left: auto;">
+                    <button type="button" onclick="document.getElementById('etkinlikModal').style.display='none'" class="btn" style="margin-right: 0.5rem; background: transparent; color: var(--text-color); border: 1px solid var(--border-color);">İptal</button>
+                    <button type="submit" class="btn btn-primary">Kaydet</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Randevu Düzenleme Modalı -->
+<div id="randevuDuzenleModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 2000; justify-content: center; align-items: center; padding: 1rem;">
+    <div style="background: var(--bg-color); padding: 2rem; border-radius: 12px; width: 500px; max-width: 100%; position: relative;">
+        <button onclick="document.getElementById('randevuDuzenleModal').style.display='none'" style="position: absolute; top: 1rem; right: 1rem; background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-color);"><i class="fa-solid fa-xmark"></i></button>
+        <h3 style="margin-top: 0; margin-bottom: 1.5rem; color: var(--primary-color);">Randevu Düzenle</h3>
+        
+        <form id="randevuDuzenleForm" method="POST">
+            <div class="form-group">
+                <label>Yeni Tarih ve Saat</label>
+                <input type="datetime-local" name="tarih_saat" id="randevu_duzenle_tarih_saat" class="form-control" required>
+            </div>
+            <div class="form-group">
+                <label>Notlar (İsteğe Bağlı)</label>
+                <textarea name="notlar" id="randevu_duzenle_notlar" class="form-control" rows="3"></textarea>
+            </div>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 1.5rem;">
+                <button type="button" id="btnRandevuSil" class="btn btn-accent" style="background-color: #ef4444;" onclick="if(confirm('Bu randevuyu silmek istediğinize emin misiniz?')) { document.getElementById('randevuSilForm').submit(); }"><i class="fa-solid fa-trash"></i> Randevuyu Sil</button>
+                <div style="text-align: right;">
+                    <button type="button" onclick="document.getElementById('randevuDuzenleModal').style.display='none'" class="btn" style="margin-right: 0.5rem; background: transparent; color: var(--text-color); border: 1px solid var(--border-color);">İptal</button>
+                    <button type="submit" class="btn btn-primary">Kaydet</button>
+                </div>
+            </div>
+        </form>
+        <form id="randevuSilForm" method="POST" action="" style="display: none;"></form>
+    </div>
+</div>
+
+<!-- FullCalendar CSS & JS -->
+<link href="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/locales/tr.js"></script>
+
+<script>
+    let calendars = [];
+    let currentView = 'timeGridWeek';
+    
+    function toggleAllPersonel(master) {
+        document.querySelectorAll('.personel-cb').forEach(cb => cb.checked = master.checked);
+        renderCalendars();
+    }
+    
+    function showMyCalendarOnly() {
+        const currentUserId = "{{ current_user.id }}";
+        document.querySelectorAll('.personel-cb').forEach(cb => {
+            cb.checked = (cb.value === currentUserId);
+        });
+        checkAllState();
+        renderCalendars();
+    }
+    
+    function checkAllState() {
+        const checkboxes = document.querySelectorAll('.personel-cb');
+        const checked = document.querySelectorAll('.personel-cb:checked');
+        const selectAll = document.getElementById('selectAllPersonel');
+        if (selectAll) {
+            selectAll.checked = (checkboxes.length > 0 && checkboxes.length === checked.length);
+        }
+    }
+    
+    function changeAllViews(view) {
+        currentView = view;
+        document.querySelectorAll('.view-selector button').forEach(b => b.classList.remove('active'));
+        if (view === 'timeGridDay') document.getElementById('btn-day').classList.add('active');
+        else if (view === 'timeGridWeek') document.getElementById('btn-week').classList.add('active');
+        else document.getElementById('btn-month').classList.add('active');
+        
+        calendars.forEach(cal => cal.changeView(view));
+    }
+    
+    document.addEventListener('click', function(e) {
+        const dropdown = document.querySelector('.custom-dropdown');
+        const list = document.getElementById('personelListesi');
+        if (dropdown && list && !dropdown.contains(e.target)) {
+            list.style.display = 'none';
+        }
+    });
+
+    function renderCalendars() {
+        const container = document.getElementById('calendarContainer');
+        calendars.forEach(c => c.destroy());
+        calendars = [];
+        container.innerHTML = '';
+        
+        let checkboxes = Array.from(document.querySelectorAll('.personel-cb:checked'));
+        
+        // Hiç checkbox yoksa (tek kişilik takvim, personel listesi yok)
+        if (document.querySelectorAll('.personel-cb').length === 0) {
+            checkboxes = [{ 
+                value: '{{ current_user.id }}', 
+                dataset: { 
+                    avatar: '{{ url_for("static", filename="uploads/" + (current_user.profil_resmi or "default.png")) }}',
+                    name: '{{ current_user.ad_soyad }} ({{ current_user.rol }})'
+                }
+            }];
+        }
+        
+        if (checkboxes.length === 0) {
+            container.innerHTML = '<div style="text-align: center; padding: 4rem; color: var(--text-muted);"><i class="fa-regular fa-calendar-xmark" style="font-size: 3rem; margin-bottom: 1rem; display: block;"></i>Görüntülenecek takvim seçilmedi.<br>Yukarıdan personel filtreleyebilirsiniz.</div>';
+            return;
+        }
+        
+        // 3'ten fazla takvim varsa otomatik gün görünümüne geç
+        if (checkboxes.length > 3 && currentView !== 'dayGridMonth') {
+            currentView = 'timeGridDay';
+            document.querySelectorAll('.view-selector button').forEach(b => b.classList.remove('active'));
+            document.getElementById('btn-day').classList.add('active');
+        }
+        
+        checkboxes.forEach(cb => {
+            const pId = cb.value;
+            const pName = cb.dataset.name || 'Takvimim';
+            const avatarUrl = cb.dataset.avatar || '';
+            
+            const wrapper = document.createElement('div');
+            wrapper.className = 'calendar-card';
+            
+            const header = document.createElement('div');
+            header.className = 'calendar-card-header';
+            header.innerHTML = `
+                <img src="${avatarUrl}" alt="Profil">
+                <h4>${pName}</h4>
+            `;
+            wrapper.appendChild(header);
+            
+            const calendarEl = document.createElement('div');
+            wrapper.appendChild(calendarEl);
+            container.appendChild(wrapper);
+            
+            const cal = new FullCalendar.Calendar(calendarEl, {
+                locale: 'tr',
+                initialView: currentView,
+                headerToolbar: {
+                    left: 'prev,next today',
+                    center: 'title',
+                    right: ''
+                },
+                slotMinTime: '08:00:00',
+                slotMaxTime: '20:00:00',
+                allDaySlot: false,
+                height: 550,
+                events: {
+                    url: '/api/takvim',
+                    extraParams: { personel_ids: pId }
+                },
+                selectable: true,
+                select: function(info) {
+                    document.getElementById('etkinlikForm').reset();
+                    document.getElementById('etkinlik_id').value = '';
+                    
+                    let startStr = info.startStr.split('T');
+                    let endStr = info.endStr.split('T');
+                    
+                    if (startStr[1]) {
+                        document.getElementById('etkinlik_baslangic_tarih').value = startStr[0];
+                        document.getElementById('etkinlik_baslangic_saat').value = startStr[1].substring(0, 5);
+                    }
+                    if (endStr[1]) {
+                        document.getElementById('etkinlik_bitis_tarih').value = endStr[0];
+                        document.getElementById('etkinlik_bitis_saat').value = endStr[1].substring(0, 5);
+                    }
+                    
+                    document.getElementById('btnEtkinlikSil').style.display = 'none';
+                    document.getElementById('etkinlikModal').style.display = 'flex';
+                },
+                eventClick: function(info) {
+                    if (info.event.id && info.event.id.startsWith('r_')) {
+                        const randevuId = info.event.id.substring(2);
+                        const tarihStr = info.event.startStr.substring(0, 16);
+                        const notlar = info.event.extendedProps.rawNotlar || '';
+                        
+                        document.getElementById('randevu_duzenle_tarih_saat').value = tarihStr;
+                        document.getElementById('randevu_duzenle_notlar').value = notlar;
+                        document.getElementById('randevuDuzenleForm').action = '/randevu-duzenle/' + randevuId;
+                        document.getElementById('randevuSilForm').action = '/randevu-sil/' + randevuId;
+                        document.getElementById('randevuDuzenleModal').style.display = 'flex';
+                    } else {
+                        document.getElementById('etkinlik_id').value = info.event.id;
+                        document.getElementById('etkinlik_baslik').value = info.event.title;
+                        
+                        let startStr = info.event.startStr.split('T');
+                        let endStr = (info.event.endStr || info.event.startStr).split('T');
+                        
+                        if (startStr[1]) {
+                            document.getElementById('etkinlik_baslangic_tarih').value = startStr[0];
+                            document.getElementById('etkinlik_baslangic_saat').value = startStr[1].substring(0, 5);
+                        }
+                        if (endStr[1]) {
+                            document.getElementById('etkinlik_bitis_tarih').value = endStr[0];
+                            document.getElementById('etkinlik_bitis_saat').value = endStr[1].substring(0, 5);
+                        }
+                        document.getElementById('etkinlik_tip').value = info.event.extendedProps.tip;
+                        document.getElementById('etkinlik_aciklama').value = info.event.extendedProps.aciklama || '';
+                        
+                        document.getElementById('btnEtkinlikSil').style.display = 'inline-block';
+                        document.getElementById('etkinlikModal').style.display = 'flex';
+                    }
+                }
+            });
+            cal.render();
+            calendars.push(cal);
+        });
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        renderCalendars();
+    });
+
+    document.getElementById('etkinlikForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        let id = document.getElementById('etkinlik_id').value;
+        let method = id ? 'PUT' : 'POST';
+        let url = id ? `/api/takvim/${id}` : '/api/takvim';
+        
+        let baslangic_tarih = document.getElementById('etkinlik_baslangic_tarih').value;
+        let baslangic_saat = document.getElementById('etkinlik_baslangic_saat').value;
+        let bitis_tarih = document.getElementById('etkinlik_bitis_tarih').value;
+        let bitis_saat = document.getElementById('etkinlik_bitis_saat').value;
+
+        let data = {
+            baslik: document.getElementById('etkinlik_baslik').value,
+            baslangic: `${baslangic_tarih}T${baslangic_saat}`,
+            bitis: `${bitis_tarih}T${bitis_saat}`,
+            tip: document.getElementById('etkinlik_tip').value,
+            aciklama: document.getElementById('etkinlik_aciklama').value
+        };
+        
+        fetch(url, {
+            method: method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        }).then(res => res.json()).then(result => {
+            if (result.success) {
+                document.getElementById('etkinlikModal').style.display = 'none';
+                renderCalendars();
+            } else {
+                alert('Hata: ' + result.error);
+            }
+        });
+    });
+    
+    function silEtkinlik() {
+        if (!confirm('Bu etkinliği silmek istediğinize emin misiniz?')) return;
+        
+        let id = document.getElementById('etkinlik_id').value;
+        if (!id) return;
+        
+        fetch(`/api/takvim/${id}`, { method: 'DELETE' })
+        .then(res => res.json()).then(result => {
+            if (result.success) {
+                document.getElementById('etkinlikModal').style.display = 'none';
+                renderCalendars();
+            } else {
+                alert('Hata: ' + result.error);
+            }
+        });
+    }
+</script>
+{% endblock %}

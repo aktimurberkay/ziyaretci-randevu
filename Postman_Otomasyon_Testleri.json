@@ -1,0 +1,134 @@
+{
+	"info": {
+		"name": "Ziyaretçi Randevu Sistemi - API Otomasyonu",
+		"description": "Projedeki API uç noktalarının (endpoints) çalışıp çalışmadığını ve hızını otomatik test eden Postman koleksiyonu.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "1. Kullanıcı Girişi (Login Testi)",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"İstek başarılı veya yönlendirme yapıldı (200/302)\", function () {",
+							"    pm.expect(pm.response.code).to.be.oneOf([200, 302]);",
+							"});"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "urlencoded",
+					"urlencoded": [
+						{"key": "kullanici_adi", "value": "admin", "type": "text"},
+						{"key": "sifre", "value": "yanlis_sifre_testi", "type": "text"}
+					]
+				},
+				"url": {
+					"raw": "{{base_url}}/login",
+					"host": ["{{base_url}}"],
+					"path": ["login"]
+				}
+			}
+		},
+		{
+			"name": "2. Takvim Etkinlikleri Getir (Performans Testi)",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Takvim API'si çok hızlı yanıt vermeli (< 500ms)\", function () {",
+							"    pm.expect(pm.response.responseTime).to.be.below(500);",
+							"});"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{base_url}}/api/takvim",
+					"host": ["{{base_url}}"],
+					"path": ["api", "takvim"]
+				}
+			}
+		},
+		{
+			"name": "3. Müsaitlik Kontrolü API Testi",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Durum Kodu 200 Olmalı\", function () {",
+							"    pm.response.to.have.status(200);",
+							"});"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{base_url}}/api/musaitlik-kontrol?personel_id=1&tarih_saat=2026-07-20T10:30",
+					"host": ["{{base_url}}"],
+					"path": ["api", "musaitlik-kontrol"],
+					"query": [
+						{"key": "personel_id", "value": "1"},
+						{"key": "tarih_saat", "value": "2026-07-20T10:30"}
+					]
+				}
+			}
+		},
+		{
+			"name": "4. Zararlı Kod Koruması (XSS Testi)",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Sistem 500 hatası vermemeli (Çökmemeli)\", function () {",
+							"    pm.response.to.not.have.status(500);",
+							"});"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "urlencoded",
+					"urlencoded": [
+						{"key": "ad_soyad", "value": "Hacker <script>alert(1)</script>", "type": "text"},
+						{"key": "tc_kimlik", "value": "11111111110", "type": "text"}
+					]
+				},
+				"url": {
+					"raw": "{{base_url}}/",
+					"host": ["{{base_url}}"],
+					"path": [""]
+				}
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://127.0.0.1:5001",
+			"type": "string"
+		}
+	]
+}

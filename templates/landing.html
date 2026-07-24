@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ziyaretçi Randevu Talebi - Vega A.Ş</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body class="animate-fade-in" style="background: var(--auth-bg); min-height: 100vh; overflow-x: hidden; transition: background 0.4s ease;">
+    
+    <!-- Depth & Glow Background -->
+    <div style="position: absolute; top:0; left:0; width:100%; height:100%; overflow: hidden; z-index: -1;">
+        <div style="position: absolute; top: -10%; left: -10%; width: 50%; height: 50%; background: radial-gradient(circle, var(--accent-color) 0%, transparent 60%); opacity: 0.15; filter: blur(60px); animation: fadeIn 2s ease-out;"></div>
+        <div style="position: absolute; bottom: -20%; right: -10%; width: 60%; height: 60%; background: radial-gradient(circle, var(--text-main) 0%, transparent 70%); opacity: 0.05; filter: blur(80px); animation: slideUp 3s ease-out;"></div>
+    </div>
+
+    <div style="position: absolute; top: 1.5rem; right: 2rem; z-index: 10; display: flex; gap: 1rem; align-items: center;">
+        <button id="theme-toggle" class="theme-toggle-btn" title="Temayı Değiştir" style="background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.1); color: #fff; width: 42px; height: 42px; display: flex; justify-content: center; align-items: center;">
+            <i class="fa-solid fa-moon"></i>
+        </button>
+        <a href="{{ url_for('login') }}" class="btn btn-primary" style="background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.1); color: #fff;">Personel Girişi</a>
+    </div>
+
+    <div class="auth-container animate-slide-up" style="max-width: 600px; margin-top: 4rem; position: relative; z-index: 1;">
+
+        <h2 class="auth-title">Vega A.Ş Ziyaretçi Talebi</h2>
+        <p style="text-align: center; color: var(--text-muted); margin-bottom: 2rem;">Kurumumuzda görüşmek istediğiniz personele randevu talebi iletmek için formu doldurunuz.</p>
+        
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            {% for category, message in messages %}
+              <div class="alert alert-{{ category }}">{{ message }}</div>
+            {% endfor %}
+          {% endif %}
+        {% endwith %}
+
+        <form action="{{ url_for('landing') }}" method="POST">
+            <div class="form-group">
+                <label>Adınız ve Soyadınız</label>
+                <input type="text" name="ad_soyad" class="form-control" required>
+            </div>
+            <div class="form-group">
+                <label>T.C. Kimlik No (Opsiyonel)</label>
+                <input type="text" name="tc_kimlik" class="form-control" maxlength="11" pattern="\d{11}" title="11 haneli TC Kimlik Numarası giriniz">
+            </div>
+            <div class="form-group">
+                <label>E-posta Adresiniz</label>
+                <input type="email" name="eposta" class="form-control" required>
+            </div>
+            <div class="form-group">
+                <label>Şirketiniz (Opsiyonel)</label>
+                <input type="text" name="sirket" class="form-control">
+            </div>
+            <div class="form-group">
+                <label>Görüşülecek Kişi</label>
+                <select name="personel_id" id="personel_select" class="form-control" required onchange="loadMusaitSaatler()">
+                    <option value="">Seçiniz...</option>
+                    {% for p in personeller %}
+                    <option value="{{ p.id }}">{{ p.ad_soyad }} ({{ p.departman }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+                <div class="form-group" style="flex: 1;">
+                    <label>Randevu Tarihi</label>
+                    <input type="date" id="randevu_tarihi" name="randevu_tarihi" class="form-control" required min="{{ datetime.now().strftime('%Y-%m-%d') }}" onchange="loadMusaitSaatler()">
+                </div>
+                <div class="form-group" style="flex: 1;">
+                    <label>Randevu Saati</label>
+                    <select id="randevu_saati" name="randevu_saati" class="form-control" required disabled>
+                        <option value="">Önce tarih ve kişi seçin</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label>Ziyaret Amacı / Notunuz</label>
+                <textarea name="notlar" class="form-control" rows="3"></textarea>
+            </div>
+            
+            <div class="form-group" style="background: var(--bg-color); padding: 1rem; border-radius: 8px; border: 1px solid var(--border-color);">
+                <label style="display: flex; align-items: flex-start; cursor: pointer; margin: 0;">
+                    <input type="checkbox" name="kvkk_onayi" required style="margin-right: 0.8rem; margin-top: 4px;">
+                    <span>Kişisel verilerimin <a href="#" onclick="document.getElementById('kvkkModal').style.display='flex'; return false;" style="color: var(--primary-color); text-decoration: underline;">KVKK Aydınlatma Metni</a> kapsamında işlenmesini onaylıyorum.</span>
+                </label>
+            </div>
+
+            <button type="submit" class="btn btn-accent" style="width: 100%;">Talebi Gönder</button>
+        </form>
+    </div>
+    
+    <!-- KVKK Modal -->
+    <div id="kvkkModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 2000; justify-content: center; align-items: center; padding: 1rem;">
+        <div style="background: var(--bg-color); padding: 2rem; border-radius: 12px; max-width: 600px; max-height: 80vh; overflow-y: auto; position: relative; box-shadow: 0 10px 25px rgba(0,0,0,0.2);">
+            <button onclick="document.getElementById('kvkkModal').style.display='none'" style="position: absolute; top: 1rem; right: 1rem; background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-color);"><i class="fa-solid fa-xmark"></i></button>
+            <h3 style="margin-top: 0; color: var(--primary-color);">KVKK Aydınlatma Metni</h3>
+            <p>Bu aydınlatma metni, 6698 sayılı Kişisel Verilerin Korunması Kanunu ("KVKK") kapsamında Vega Endüstri A.Ş. tarafından hazırlanmıştır.</p>
+            <ul style="margin-left: 1.5rem; margin-bottom: 1rem;">
+                <li><strong>İşlenen Veriler:</strong> Ad soyad, T.C. Kimlik no, e-posta, telefon ve şirket bilgisi.</li>
+                <li><strong>İşlenme Amacı:</strong> Kurum içi fiziki güvenlik, ziyaretçi takibi, randevu yönetimi ve acil durum bildirimleri.</li>
+                <li><strong>Veri Aktarımı:</strong> Verileriniz hiçbir şekilde üçüncü şahıs veya kurumlarla paylaşılmamaktadır. Sadece kendi sunucularımızda saklanır.</li>
+            </ul>
+            <p>Onay vererek kişisel verilerinizin kurum politikalarımız çerçevesinde işlenmesini ve saklanmasını kendi açık rızanızla kabul etmiş sayılırsınız.</p>
+            <button onclick="document.getElementById('kvkkModal').style.display='none'" class="btn btn-primary" style="margin-top: 1rem; width: 100%;">Anladım, Kapat</button>
+        </div>
+    </div>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/js/all.min.js"></script>
+    <script>
+        function loadMusaitSaatler() {
+            const personelId = document.getElementById('personel_select').value;
+            const tarih = document.getElementById('randevu_tarihi').value;
+            const saatSelect = document.getElementById('randevu_saati');
+            
+            if (!personelId || !tarih) {
+                saatSelect.innerHTML = '<option value="">Önce tarih ve kişi seçin</option>';
+                saatSelect.disabled = true;
+                return;
+            }
+            
+            saatSelect.innerHTML = '<option value="">Yükleniyor...</option>';
+            saatSelect.disabled = true;
+            
+            fetch(`/api/musait-saatler?personel_id=${personelId}&tarih=${tarih}`)
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        saatSelect.innerHTML = '<option value="">Seçiniz...</option>';
+                        if (data.saatler.length === 0) {
+                            saatSelect.innerHTML = '<option value="">Bu günde uygun saat yok</option>';
+                        } else {
+                            data.saatler.forEach(saat => {
+                                let opt = document.createElement('option');
+                                opt.value = saat;
+                                opt.textContent = saat;
+                                saatSelect.appendChild(opt);
+                            });
+                            saatSelect.disabled = false;
+                        }
+                    } else {
+                        saatSelect.innerHTML = '<option value="">Hata oluştu</option>';
+                    }
+                })
+                .catch(err => {
+                    saatSelect.innerHTML = '<option value="">Bağlantı hatası</option>';
+                });
+        }
+
+        function showKvkkModal() {
+            document.getElementById('kvkkModal').style.display = 'flex';
+        }
+
+        // Tema Yönetimi
+        const themeToggleBtn = document.getElementById('theme-toggle');
+        const themeIcon = themeToggleBtn ? themeToggleBtn.querySelector('i') : null;
+        
+        function setTheme(themeName) {
+            document.documentElement.setAttribute('data-theme', themeName);
+            localStorage.setItem('theme', themeName);
+            if(themeIcon) {
+                if(themeName === 'dark') {
+                    themeIcon.className = 'fa-solid fa-sun';
+                } else {
+                    themeIcon.className = 'fa-solid fa-moon';
+                }
+            }
+        }
+        
+        // İlk yüklemede kontrol et
+        const currentTheme = localStorage.getItem('theme');
+        if (currentTheme) {
+            setTheme(currentTheme);
+        } else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            setTheme('dark');
+        }
+        
+        // Toggle butonu listener
+        if(themeToggleBtn) {
+            themeToggleBtn.addEventListener('click', () => {
+                const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+                setTheme(isDark ? 'light' : 'dark');
+            });
+        }
+    </script>
+
+    <!-- Global SQL & XSS Validator Script -->
+    <script>
+    document.addEventListener('submit', function(e) {
+        if (e.target && e.target.tagName === 'FORM') {
+            const sqlKeywords = /\b(SELECT|INSERT|DELETE|UPDATE|DROP|ALTER|UNION|WHERE|FROM|TABLE|JOIN|CREATE|EXEC|TRUNCATE|MERGE|GRANT|REVOKE|SHOW|DESCRIBE|SCRIPT|ALERT|CONSOLE|LOG)\b/i;
+            let hasError = false;
+            
+            e.target.querySelectorAll('input:not([type="hidden"]):not([type="submit"]), textarea').forEach(input => {
+                if (sqlKeywords.test(input.value) || /[<>]/.test(input.value)) {
+                    hasError = true;
+                }
+            });
+            
+            if (hasError) {
+                e.preventDefault();
+                e.stopImmediatePropagation();
+                alert("Bu alana özel karakterler girilemez");
+                return false;
+            }
+        }
+    }, true); // Capture phase'de yakala ki form gönderilmeden önce kesin müdahale edebilelim
+    </script>
+</body>
+</html>

@@ -1,0 +1,194 @@
+{% extends 'base.html' %}
+
+{% block page_title %}Personel Yönetimi{% endblock %}
+
+{% block content %}
+<div class="glass-card" style="max-width: 100%; margin: 0;">
+    <h3>Yeni Personel / Kullanıcı Ekle</h3>
+
+
+    <form method="POST" action="{{ url_for('personel_yonetimi') }}" enctype="multipart/form-data" style="display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 2.5rem; background: #f9fbfc; padding: 1.5rem; border-radius: 8px; border: 1px solid var(--border-color); align-items: flex-end;">
+        <div class="form-group" style="flex: 1; min-width: 180px; margin-bottom: 0;">
+            <input type="text" name="ad_soyad" class="form-control" placeholder="Ad Soyad" required>
+        </div>
+        <div class="form-group" style="flex: 1; min-width: 150px; margin-bottom: 0;">
+            <input type="text" name="kullanici_adi" class="form-control" placeholder="Kullanıcı Adı" required>
+        </div>
+        <div class="form-group" style="flex: 1; min-width: 200px; margin-bottom: 0;">
+            <input type="email" name="eposta" class="form-control" placeholder="ad.soyad@vega.com" required>
+        </div>
+        <div class="form-group" style="flex: 1; min-width: 150px; margin-bottom: 0;">
+            <input type="password" name="sifre" class="form-control" placeholder="Geçici Şifre" required>
+        </div>
+        <div class="form-group" style="flex: 1; min-width: 150px; margin-bottom: 0;">
+            <select name="rol" class="form-control" required>
+                <option value="">Rol Seçin</option>
+                <option value="admin">Sistem Yöneticisi</option>
+                <option value="resepsiyon">Resepsiyonist / Güvenlik</option>
+                <option value="sekreter">Sekreter</option>
+                <option value="personel">Standart Personel</option>
+            </select>
+        </div>
+        <div class="form-group" style="flex: 1; min-width: 150px; margin-bottom: 0;">
+            <input type="text" name="departman" class="form-control" placeholder="Departman (Opsiyonel)">
+        </div>
+        <div class="form-group" id="yonetici-secimi-grup" style="flex: 1; min-width: 200px; margin-bottom: 0; display: none;">
+            <select name="bagli_yonetici_id" class="form-control">
+                <option value="">Bağlı Yönetici Seçin</option>
+                {% for y in yoneticiler %}
+                <option value="{{ y.id }}">{{ y.ad_soyad }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="form-group" style="flex: 0 0 200px; margin-bottom: 0;">
+            <label style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.2rem; display: block;">Profil Fotoğrafı</label>
+            <input type="file" name="profil_resmi" class="form-control" accept="image/*" style="padding: 0.4rem;">
+        </div>
+        <button type="submit" class="btn btn-accent" style="flex: 0 0 auto; height: 42px; padding: 0 1.5rem; margin-bottom: 0;"><i class="fa-solid fa-user-plus"></i> Ekle</button>
+    </form>
+
+    <h4>Kayıtlı Kullanıcılar</h4>
+    <div style="overflow-x: auto;">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Fotoğraf</th>
+                    <th>Ad Soyad</th>
+                    <th>Kullanıcı Adı</th>
+                    <th>E-Posta</th>
+                    <th>Rol</th>
+                    <th>Departman</th>
+                    <th>İşlem</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% if not kullanicilar %}
+                <tr>
+                    <td colspan="6" style="text-align: center; color: var(--text-muted); padding: 2rem;">Kayıtlı kullanıcı bulunamadı.</td>
+                </tr>
+                {% else %}
+                    {% for kullanici in kullanicilar %}
+                    <tr>
+                        <td>
+                            <img src="{{ url_for('static', filename='uploads/' + (kullanici.profil_resmi or 'default.png')) }}" alt="Profil" style="width: 104px; height: 104px; border-radius: 50%; object-fit: cover; border: 3px solid var(--primary-color); box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
+                        </td>
+                        <td>{{ kullanici.ad_soyad }}</td>
+                        <td>{{ kullanici.kullanici_adi }}</td>
+                        <td>{{ kullanici.eposta }}</td>
+                        <td><span class="role-badge">{{ kullanici.rol | upper }}</span></td>
+                        <td>{{ kullanici.departman or '-' }}</td>
+                        <td>
+                            <div style="display: flex; flex-direction: column; gap: 0.5rem; width: fit-content;">
+                                <button type="button" onclick="showPersonelDuzenle('{{ kullanici.id }}', '{{ kullanici.ad_soyad | escape }}', '{{ kullanici.kullanici_adi | escape }}', '{{ kullanici.eposta | escape }}', '{{ kullanici.rol }}', '{{ kullanici.departman or '' | escape }}', '{{ kullanici.bagli_yonetici_id or '' }}')" class="btn btn-primary" style="padding: 0.4rem 0.6rem; font-size: 0.8rem; width: 100%;"><i class="fa-solid fa-pen"></i> Düzenle</button>
+                                
+                                {% if kullanici.id != current_user.id %}
+                                <form action="{{ url_for('personel_sil', kullanici_id=kullanici.id) }}" method="POST" style="margin: 0; width: 100%;" onsubmit="return confirm('{{ kullanici.ad_soyad }} adlı kullanıcıyı silmek istediğinize emin misiniz?');">
+                                    <button type="submit" class="btn btn-accent" style="padding: 0.4rem 0.6rem; font-size: 0.8rem; width: 100%;"><i class="fa-solid fa-trash"></i> Sil</button>
+                                </form>
+                                {% else %}
+                                <span style="color: var(--text-muted); font-size: 0.8rem; text-align: center;">Bu sizsiniz</span>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Personel Düzenleme Modalı -->
+<div id="personelDuzenleModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 2000; justify-content: center; align-items: center; padding: 1rem;">
+    <div style="background: var(--bg-color); padding: 2rem; border-radius: 12px; width: 500px; max-width: 100%; position: relative;">
+        <button onclick="document.getElementById('personelDuzenleModal').style.display='none'" style="position: absolute; top: 1rem; right: 1rem; background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-color);"><i class="fa-solid fa-xmark"></i></button>
+        <h3 style="margin-top: 0; margin-bottom: 1.5rem; color: var(--primary-color);">Personel Düzenle</h3>
+        
+        <form id="personelDuzenleForm" method="POST" enctype="multipart/form-data">
+            <div class="form-group">
+                <label>Ad Soyad</label>
+                <input type="text" name="ad_soyad" id="duzenle_ad_soyad" class="form-control" required>
+            </div>
+            <div class="form-group">
+                <label>Kullanıcı Adı</label>
+                <input type="text" name="kullanici_adi" id="duzenle_kullanici_adi" class="form-control" required>
+            </div>
+            <div class="form-group">
+                <label>E-Posta</label>
+                <input type="email" name="eposta" id="duzenle_eposta" class="form-control" required>
+            </div>
+            <div class="form-group">
+                <label>Rol</label>
+                <select name="rol" id="duzenle_rol" class="form-control" required>
+                    <option value="admin">Sistem Yöneticisi</option>
+                    <option value="resepsiyon">Resepsiyonist / Güvenlik</option>
+                    <option value="sekreter">Sekreter</option>
+                    <option value="personel">Standart Personel</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Departman</label>
+                <input type="text" name="departman" id="duzenle_departman" class="form-control">
+            </div>
+            <div class="form-group" id="duzenle-yonetici-grup" style="display: none;">
+                <label>Bağlı Olduğu Yönetici</label>
+                <select name="bagli_yonetici_id" id="duzenle_bagli_yonetici_id" class="form-control">
+                    <option value="">Bağlı Olduğu Yönetici Seçin</option>
+                    {% for y in yoneticiler %}
+                    <option value="{{ y.id }}">{{ y.ad_soyad }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Yeni Profil Fotoğrafı (Değiştirmek için seçin)</label>
+                <input type="file" name="profil_resmi" class="form-control" accept="image/*">
+            </div>
+            <div class="form-group">
+                <label>Yeni Şifre (Değiştirmek istemiyorsanız boş bırakın)</label>
+                <input type="password" name="sifre" class="form-control" placeholder="Yeni şifre (opsiyonel)">
+            </div>
+            
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 1.5rem;">
+                <button type="button" id="btnPersonelSil" class="btn btn-accent" style="background-color: #ef4444;" onclick="if(confirm('Bu kullanıcıyı silmek istediğinize emin misiniz?')) { document.getElementById('personelSilForm').submit(); }"><i class="fa-solid fa-trash"></i> Sil</button>
+                <button type="submit" class="btn btn-primary" style="width: auto;">Değişiklikleri Kaydet</button>
+            </div>
+        </form>
+        <form id="personelSilForm" method="POST" action="" style="display: none;"></form>
+    </div>
+</div>
+
+<script>
+document.querySelector('select[name="rol"]').addEventListener('change', function() {
+    document.getElementById('yonetici-secimi-grup').style.display = (this.value === 'sekreter') ? 'block' : 'none';
+});
+
+document.getElementById('duzenle_rol').addEventListener('change', function() {
+    document.getElementById('duzenle-yonetici-grup').style.display = (this.value === 'sekreter') ? 'block' : 'none';
+});
+
+function showPersonelDuzenle(id, ad_soyad, kullanici_adi, eposta, rol, departman, bagli_yonetici_id) {
+    document.getElementById('duzenle_ad_soyad').value = ad_soyad;
+    document.getElementById('duzenle_kullanici_adi').value = kullanici_adi;
+    document.getElementById('duzenle_eposta').value = eposta;
+    document.getElementById('duzenle_rol').value = rol;
+    document.getElementById('duzenle_departman').value = departman;
+    document.getElementById('duzenle_bagli_yonetici_id').value = bagli_yonetici_id || '';
+    document.getElementById('duzenle-yonetici-grup').style.display = (rol === 'sekreter') ? 'block' : 'none';
+    
+    // Action URL ayarlama
+    document.getElementById('personelDuzenleForm').action = '/personel-duzenle/' + id;
+    document.getElementById('personelSilForm').action = '/personel-sil/' + id;
+    
+    // Admin kendi kendini silemesin
+    const currentUserId = "{{ current_user.id }}";
+    if (id == currentUserId) {
+        document.getElementById('btnPersonelSil').style.display = 'none';
+    } else {
+        document.getElementById('btnPersonelSil').style.display = 'inline-block';
+    }
+    
+    document.getElementById('personelDuzenleModal').style.display = 'flex';
+}
+</script>
+
+{% endblock %}

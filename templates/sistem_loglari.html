@@ -1,0 +1,88 @@
+{% extends 'base.html' %}
+
+{% block page_title %}Sistem Logları{% endblock %}
+
+{% block content %}
+<div class="glass-card" style="max-width: 100%; margin: 0;">
+    <h3>Sistem İşlem Kayıtları</h3>
+    <p style="color: var(--text-muted); margin-bottom: 1.5rem;">En son 500 kayıt gösterilir.</p>
+
+    <form method="GET" action="{{ url_for('sistem_loglari') }}" style="display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 2rem; background: #f9fbfc; padding: 1.5rem; border-radius: 8px; border: 1px solid var(--border-color);">
+        <div class="form-group" style="flex: 1; min-width: 180px; margin-bottom: 0;">
+            <label style="font-size: 0.8rem; color: var(--text-muted);">İşlem Tipi</label>
+            <select name="islem_tipi" class="form-control">
+                <option value="">Tümü</option>
+                {% for tip in tum_tipler %}
+                <option value="{{ tip }}" {% if islem_tipi_filtre == tip %}selected{% endif %}>{{ tip }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="form-group" style="flex: 1; min-width: 180px; margin-bottom: 0;">
+            <label style="font-size: 0.8rem; color: var(--text-muted);">Başlangıç Tarihi</label>
+            <input type="date" name="baslangic" class="form-control" value="{{ baslangic }}">
+        </div>
+        <div class="form-group" style="flex: 1; min-width: 180px; margin-bottom: 0;">
+            <label style="font-size: 0.8rem; color: var(--text-muted);">Bitiş Tarihi</label>
+            <input type="date" name="bitis" class="form-control" value="{{ bitis }}">
+        </div>
+        <div style="display: flex; align-items: flex-end; gap: 0.5rem;">
+            <button type="submit" class="btn btn-primary" style="width: auto; padding: 0.8rem 1.5rem;"><i class="fa-solid fa-filter"></i> Filtrele</button>
+            {% if islem_tipi_filtre or baslangic or bitis %}
+            <a href="{{ url_for('sistem_loglari') }}" class="btn btn-accent" style="width: auto; padding: 0.8rem 1.5rem;">Temizle</a>
+            {% endif %}
+        </div>
+    </form>
+
+    <div style="overflow-x: auto;">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Tarih</th>
+                    <th>Kullanıcı</th>
+                    <th>İşlem</th>
+                    <th>Hedef</th>
+                    <th>Detay</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% if not kayitlar %}
+                <tr>
+                    <td colspan="5" style="text-align: center; color: var(--text-muted); padding: 2rem;">Kriterlere uygun log kaydı bulunamadı.</td>
+                </tr>
+                {% else %}
+                    {% for log in kayitlar %}
+                    <tr>
+                        <td style="white-space: nowrap;">{{ log.tarih.strftime('%d.%m.%Y %H:%M:%S') }}</td>
+                        <td>{{ log.kullanici.ad_soyad if log.kullanici else 'Sistem / Ziyaretçi' }}</td>
+                        <td><span class="role-badge">{{ log.islem_tipi }}</span></td>
+                        <td>{{ log.hedef_tablo }}{% if log.hedef_id %} #{{ log.hedef_id }}{% endif %}</td>
+                        <td style="max-width: 350px; font-size: 0.85rem; color: var(--text-muted); word-break: break-word;">
+                            {% if log.detay %}
+                                {% set d = log.detay | from_json %}
+                                {% if d is mapping %}
+                                    <div style="line-height: 1.7;">
+                                        {% for key, val in d.items() %}
+                                            {% if val is mapping %}
+                                                {% for k2, v2 in val.items() %}
+                                                    <span style="font-weight: 500; color: var(--text-color);">{{ k2 }}:</span> {{ v2 }}<br>
+                                                {% endfor %}
+                                            {% else %}
+                                                <span style="font-weight: 500; color: var(--text-color);">{{ key }}:</span> {{ val }}<br>
+                                            {% endif %}
+                                        {% endfor %}
+                                    </div>
+                                {% else %}
+                                    {{ log.detay }}
+                                {% endif %}
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,317 @@
+{% extends 'base.html' %}
+
+{% block page_title %}Hoş Geldiniz, {{ current_user.ad_soyad }}{% endblock %}
+
+{% block content %}
+<div class="glass-card animate-slide-up" style="max-width: 100%; margin: 0;">
+    <h3>Randevu İşlemleri Özeti</h3>
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; flex-wrap: wrap; gap: 1rem;">
+
+        
+    </div>
+    
+    {% if current_user.rol in ['resepsiyon', 'sekreter'] %}
+    <!-- Hızlı Kayıt Formu -->
+    <div style="margin-bottom: 2rem; background: #f9fbfc; padding: 1.5rem; border-radius: 8px; border: 1px solid var(--border-color);">
+        <h4 style="margin-bottom: 1rem; color: var(--primary-color);"><i class="fa-solid fa-bolt"></i> Hızlı Ziyaretçi Kaydı (Habersiz Gelen / Acil)</h4>
+        <form action="{{ url_for('hizli_kayit') }}" method="POST" style="display: flex; gap: 1rem; flex-wrap: wrap;">
+            <div class="form-group" style="flex: 1; min-width: 200px; margin-bottom: 0;">
+                <input type="text" name="ad_soyad" class="form-control" placeholder="Ad Soyad" required>
+            </div>
+            <div class="form-group" style="flex: 1; min-width: 200px; margin-bottom: 0;">
+                <input type="text" name="tc_kimlik" class="form-control" placeholder="TC Kimlik">
+            </div>
+            <div class="form-group" style="flex: 1; min-width: 200px; margin-bottom: 0;">
+                <select name="personel_id" class="form-control" required>
+                    <option value="">Görüşülecek Kişi</option>
+                    {% for personel in personeller %}
+                    <option value="{{ personel.id }}">{{ personel.ad_soyad }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div style="display: flex; gap: 0.5rem; align-items: flex-end;">
+                <button type="submit" name="islem_tipi" value="iceri_al" class="btn btn-accent" style="height: 100%; padding: 0.8rem 1.5rem;">Kayıt ve Giriş Ver</button>
+                <button type="submit" name="islem_tipi" value="beklemeye_al" class="btn" style="height: 100%; padding: 0.8rem 1.5rem; background-color: var(--warning); color: white; border: none; border-radius: 8px;">Kayıt ve Beklemeye Al</button>
+            </div>
+        </form>
+    </div>
+    {% endif %}
+
+    {% if istatistikler %}
+    <!-- Yönetici İstatistikleri -->
+    <div style="margin-bottom: 2rem; background: #f9fbfc; padding: 1.5rem; border-radius: 8px; border: 1px solid var(--border-color);">
+        <h4 style="margin-bottom: 1rem; color: var(--primary-color);"><i class="fa-solid fa-chart-pie"></i> Randevu İstatistikleri</h4>
+        <div style="display: flex; gap: 2rem; justify-content: center; flex-wrap: wrap;">
+            <div style="width: 300px; height: 300px;">
+                <canvas id="durumChart"></canvas>
+            </div>
+            
+            {% if gunluk_veriler %}
+            <div style="width: 400px; height: 300px;">
+                <canvas id="gunlukChart"></canvas>
+            </div>
+            {% endif %}
+
+            <div style="flex: 1; min-width: 250px; display: flex; align-items: center;">
+                <div style="width: 100%;">
+                    <p><strong>Toplam Bekleyen:</strong> {{ istatistikler['Bekliyor'] }}</p>
+                    <p><strong>Bugün İçeride:</strong> {{ istatistikler['İçeride'] }}</p>
+                    <p><strong>Bekleme Salonunda:</strong> {{ istatistikler['Bekleme'] }}</p>
+                    <p><strong>Onaylananlar:</strong> {{ istatistikler['Onaylandı'] }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <h4>Güncel Randevularınız</h4>
+    <div style="overflow-x: auto;">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Ziyaretçi Adı</th>
+                    <th>Şirket</th>
+                    <th>Görüşülecek Kişi</th>
+                    <th>Tarih ve Saat</th>
+                    <th>Ziyaret Notu</th>
+                    <th>Durum</th>
+                    <th>İşlem</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% if not randevular %}
+                <tr>
+                    <td colspan="7" style="text-align: center; color: var(--text-muted); padding: 2rem;">Kayıtlı randevu bulunamadı.</td>
+                </tr>
+                {% else %}
+                    {% for randevu in randevular %}
+                    <tr>
+                        <td>{{ randevu.ziyaretci_bilgisi.ad_soyad }}</td>
+                        <td>{{ randevu.ziyaretci_bilgisi.sirket or '-' }}</td>
+                        <td>{{ randevu.personel.ad_soyad }}</td>
+                        <td>{{ randevu.tarih_saat.strftime('%d.%m.%Y %H:%M') }}</td>
+                        <td style="text-align: center;">
+                            {% if randevu.notlar %}
+                            <button onclick="showNotModal('{{ randevu.notlar | replace('\n', '<br>') | escape }}')" class="btn btn-primary" style="padding: 0.3rem 0.6rem; font-size: 0.8rem; background: var(--bg-color); color: var(--primary-color); border: 1px solid var(--primary-color);"><i class="fa-regular fa-comment-dots"></i> Mesajı Gör</button>
+                            {% else %}
+                            <span style="color: var(--text-muted);">-</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span class="status-badge 
+                                {% if randevu.durum == 'Bekliyor' or randevu.durum == 'Bekleme Salonunda' %}status-bekliyor
+                                {% elif randevu.durum == 'Onaylandı' or randevu.durum == 'Tamamlandı' %}status-onaylandi
+                                {% elif randevu.durum == 'Zaman Aşımı' %}status-zaman-asimi
+                                {% elif randevu.durum == 'Reddedildi' %}status-reddedildi
+                                {% else %}status-onaylandi{% endif %}">
+                                {{ randevu.durum }}
+                            </span>
+                        </td>
+                        <td>
+                            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.5rem; width: max-content;">
+                                <!-- Personel / Admin İşlemleri -->
+                                {% if current_user.id == randevu.personel_id or current_user.rol == 'admin' or (current_user.rol == 'sekreter' and current_user.bagli_yonetici_id == randevu.personel_id) %}
+                                    {% if randevu.durum == 'Bekliyor' %}
+                                    <form action="{{ url_for('durum_guncelle', randevu_id=randevu.id) }}" method="POST" style="margin: 0;">
+                                        <input type="hidden" name="islem" value="onayla">
+                                        <button type="submit" class="btn btn-primary" style="width: 100%; padding: 0.4rem; font-size: 0.8rem; background-color: var(--success);"><i class="fa-solid fa-check"></i> Onayla</button>
+                                    </form>
+                                    <form action="{{ url_for('durum_guncelle', randevu_id=randevu.id) }}" method="POST" style="margin: 0;" onsubmit="return handleReddet(event, this);">
+                                        <input type="hidden" name="islem" value="reddet">
+                                        <input type="hidden" name="red_aciklamasi" class="red-aciklamasi-input" value="">
+                                        <button type="submit" class="btn btn-accent" style="width: 100%; padding: 0.4rem; font-size: 0.8rem;"><i class="fa-solid fa-xmark"></i> Reddet</button>
+                                    </form>
+                                    {% endif %}
+                                    {% if randevu.durum == 'Onaylandı' %}
+                                    <button type="button" onclick="showDuzenleModal('{{ randevu.id }}', '{{ randevu.tarih_saat.strftime('%Y-%m-%dT%H:%M') }}', '{{ randevu.notlar | default('', true) | escape }}')" class="btn btn-primary" style="width: 100%; padding: 0.4rem; font-size: 0.8rem; background-color: #8b5cf6;"><i class="fa-solid fa-pen"></i> Düzenle</button>
+                                    {% endif %}
+                                    {% if randevu.durum == 'Bekleme Salonunda' %}
+                                    <form action="{{ url_for('durum_guncelle', randevu_id=randevu.id) }}" method="POST" style="margin: 0;">
+                                        <input type="hidden" name="islem" value="iceri_cagir">
+                                        <button type="submit" class="btn btn-primary" style="width: 100%; padding: 0.4rem; font-size: 0.8rem; background-color: #3b82f6;"><i class="fa-solid fa-bell"></i> İçeri Çağır</button>
+                                    </form>
+                                    {% endif %}
+                                {% endif %}
+
+                                <!-- Resepsiyon İşlemleri -->
+                                {% if current_user.rol in ['resepsiyon', 'admin', 'sekreter'] %}
+                                    {% if randevu.beklemeye_uygun_mu %}
+                                    <form action="{{ url_for('durum_guncelle', randevu_id=randevu.id) }}" method="POST" style="margin: 0;">
+                                        <input type="hidden" name="islem" value="beklemeye_al">
+                                        <button type="submit" class="btn btn-primary" title="Ziyaretçi geldiğinde bekleme salonuna al" style="width: 100%; padding: 0.4rem; font-size: 0.8rem; background-color: #f59e0b; border:none;"><i class="fa-solid fa-couch"></i> Beklemeye Al</button>
+                                    </form>
+                                    {% endif %}
+                                {% endif %}
+                                
+                                {% if current_user.rol in ['resepsiyon', 'admin'] %}
+                                    {% if (randevu.durum == 'Onaylandı' or randevu.durum == 'Bekleme Salonunda') and randevu.tarih_saat.date() == bugun %}
+                                    <form action="{{ url_for('durum_guncelle', randevu_id=randevu.id) }}" method="POST" style="margin: 0;">
+                                        <input type="hidden" name="islem" value="giris">
+                                        <button type="submit" class="btn btn-primary" style="width: 100%; padding: 0.4rem; font-size: 0.8rem;"><i class="fa-solid fa-door-open"></i> Giriş Ver</button>
+                                    </form>
+                                    {% elif randevu.durum == 'İçeride' %}
+                                    <form action="{{ url_for('durum_guncelle', randevu_id=randevu.id) }}" method="POST" style="margin: 0;">
+                                        <input type="hidden" name="islem" value="cikis">
+                                        <button type="submit" class="btn btn-accent" style="width: 100%; padding: 0.4rem; font-size: 0.8rem;"><i class="fa-solid fa-door-closed"></i> Çıkış Ver</button>
+                                    </form>
+                                    {% endif %}
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Not Görüntüleme Modalı -->
+<div id="notModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 2000; justify-content: center; align-items: center; padding: 1rem;">
+    <div style="background: var(--bg-color); padding: 2rem; border-radius: 12px; width: 400px; max-width: 100%; position: relative; box-shadow: 0 10px 25px rgba(0,0,0,0.2);">
+        <button onclick="document.getElementById('notModal').style.display='none'" style="position: absolute; top: 1rem; right: 1rem; background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-color);"><i class="fa-solid fa-xmark"></i></button>
+        <h3 style="margin-top: 0; color: var(--primary-color); border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem; margin-bottom: 1rem;"><i class="fa-regular fa-comment-dots"></i> Ziyaretçi Mesajı</h3>
+        <p id="notModalIcerik" style="line-height: 1.6; word-wrap: break-word;"></p>
+        <div style="text-align: right; margin-top: 1.5rem;">
+            <button onclick="document.getElementById('notModal').style.display='none'" class="btn btn-primary">Kapat</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    function showNotModal(notText) {
+        document.getElementById('notModalIcerik').innerHTML = notText;
+        document.getElementById('notModal').style.display = 'flex';
+    }
+
+    function showDuzenleModal(id, tarih, notlar) {
+        document.getElementById('duzenle_tarih_saat').value = tarih;
+        document.getElementById('duzenle_notlar').value = notlar;
+        document.getElementById('duzenleForm').action = '/randevu-duzenle/' + id;
+        document.getElementById('silForm').action = '/randevu-sil/' + id;
+        document.getElementById('duzenleModal').style.display = 'flex';
+    }
+</script>
+</div>
+
+<!-- Randevu Düzenleme Modalı -->
+<div id="duzenleModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 2000; justify-content: center; align-items: center; padding: 1rem;">
+    <div style="background: var(--bg-color); padding: 2rem; border-radius: 12px; width: 450px; max-width: 100%; position: relative; box-shadow: 0 10px 25px rgba(0,0,0,0.2);">
+        <button onclick="document.getElementById('duzenleModal').style.display='none'" style="position: absolute; top: 1rem; right: 1rem; background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-color);"><i class="fa-solid fa-xmark"></i></button>
+        <h3 style="margin-top: 0; color: var(--primary-color); border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem; margin-bottom: 1rem;"><i class="fa-solid fa-pen"></i> Randevu Düzenle</h3>
+        
+        <form id="duzenleForm" method="POST">
+            <div class="form-group">
+                <label>Yeni Tarih ve Saat</label>
+                <input type="datetime-local" name="tarih_saat" id="duzenle_tarih_saat" class="form-control" required>
+            </div>
+            <div class="form-group">
+                <label>Notlar (İsteğe Bağlı)</label>
+                <textarea name="notlar" id="duzenle_notlar" class="form-control" rows="3"></textarea>
+            </div>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 1.5rem;">
+                <!-- Silme Butonu -->
+                <button type="button" id="btnRandevuSil" class="btn btn-accent" style="background-color: #ef4444;" onclick="if(confirm('Bu randevuyu silmek istediğinize emin misiniz?')) { document.getElementById('silForm').submit(); }"><i class="fa-solid fa-trash"></i> Randevuyu Sil</button>
+                
+                <div style="text-align: right;">
+                    <button type="button" onclick="document.getElementById('duzenleModal').style.display='none'" class="btn" style="margin-right: 0.5rem; background: transparent; color: var(--text-color); border: 1px solid var(--border-color);">İptal</button>
+                    <button type="submit" class="btn btn-primary">Kaydet</button>
+                </div>
+            </div>
+        </form>
+        
+        <!-- Gizli Silme Formu -->
+        <form id="silForm" method="POST" action="" style="display: none;"></form>
+    </div>
+</div>
+
+{% if istatistikler %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const ctx = document.getElementById('durumChart').getContext('2d');
+        const data = {
+            labels: ['Bekliyor', 'Onaylandı', 'Reddedildi', 'Tamamlandı', 'İçeride', 'Bekleme Salonunda'],
+            datasets: [{
+                label: 'Randevu Durumları',
+                data: [
+                    {{ istatistikler['Bekliyor'] }},
+                    {{ istatistikler['Onaylandı'] }},
+                    {{ istatistikler['Reddedildi'] }},
+                    {{ istatistikler['Tamamlandı'] }},
+                    {{ istatistikler['İçeride'] }},
+                    {{ istatistikler['Bekleme'] }}
+                ],
+                backgroundColor: [
+                    '#f59e0b', // Bekliyor
+                    '#10b981', // Onaylandı
+                    '#ef4444', // Reddedildi
+                    '#64748b', // Tamamlandı
+                    '#3b82f6', // İçeride
+                    '#8b5cf6'  // Bekleme
+                ],
+                borderWidth: 1
+            }]
+        };
+
+        new Chart(ctx, {
+            type: 'doughnut',
+            data: data,
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                    }
+                }
+            }
+        });
+
+        {% if gunluk_veriler %}
+        const ctx2 = document.getElementById('gunlukChart').getContext('2d');
+        const gunlukData = {
+            labels: [
+                {% for d in gunluk_veriler|reverse %} '{{ d.tarih }}', {% endfor %}
+            ],
+            datasets: [{
+                label: 'Günlük Randevu Yoğunluğu',
+                data: [
+                    {% for d in gunluk_veriler|reverse %} {{ d.sayi }}, {% endfor %}
+                ],
+                backgroundColor: '#3b82f6',
+                borderRadius: 4
+            }]
+        };
+
+        new Chart(ctx2, {
+            type: 'bar',
+            data: gunlukData,
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    title: { display: true, text: 'Son 7 Günlük Yoğunluk' }
+                },
+                scales: {
+                    y: { beginAtZero: true, ticks: { stepSize: 1 } }
+                }
+            }
+        });
+        {% endif %}
+    });
+</script>
+{% endif %}
+
+<script>
+function handleReddet(e, form) {
+    let reason = prompt("Reddetme sebebini girin (İsteğe bağlı):");
+    if (reason === null) {
+        return false;
+    }
+    form.querySelector('.red-aciklamasi-input').value = reason;
+    return true;
+}
+</script>
+{% endblock %}
