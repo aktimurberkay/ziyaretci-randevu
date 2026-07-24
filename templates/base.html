@@ -28,7 +28,7 @@
                 {% if current_user.rol == 'admin' %}
                 <li><a href="{{ url_for('personel_yonetimi') }}" class="{% if request.endpoint == 'personel_yonetimi' %}active{% endif %}"><i class="fa-solid fa-user-tie"></i> Personel Yönetimi</a></li>
                 <li><a href="{{ url_for('loglar') }}" class="{% if request.endpoint == 'loglar' %}active{% endif %}"><i class="fa-solid fa-file-invoice"></i> Raporlar</a></li>
-                <li><a href="{{ url_for('sistem_loglari') }}" class="{% if request.endpoint == 'sistem_loglari' %}active{% endif %}"><i class="fa-solid fa-shield-halved"></i> Sistem Logları</a></li>
+                <li><a href="{{ url_for('sistem_loglari') }}" class="{% if request.endpoint == 'sistem_loglari' %}active{% endif %}"><i class="fa-solid fa-list"></i> Sistem Logları</a></li>
                 {% endif %}
             </ul>
         </aside>
