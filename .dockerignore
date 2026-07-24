@@ -1,0 +1,11 @@
+venv/
+__pycache__/
+*.pyc
+.env
+.pytest_cache/
+.git/
+randevu.db
+*.db
+*.sqlite3
+.DS_Store
+*.zip
